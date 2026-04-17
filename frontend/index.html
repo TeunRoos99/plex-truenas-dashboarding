@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TrueNAS + Plex Dashboard</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #222636;
+      --border: #2e3248;
+      --accent: #e5a00d;
+      --accent2: #cc7b19;
+      --text: #e2e8f0;
+      --muted: #8892a4;
+      --danger: #ef4444;
+      --warn: #f59e0b;
+      --ok: #22c55e;
+      --radius: 10px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    header h1 { font-size: 1.25rem; font-weight: 700; }
+    header span { color: var(--accent); }
+
+    .refresh-btn {
+      margin-left: auto;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      padding: 8px 18px;
+      border-radius: var(--radius);
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: background 0.15s;
+    }
+    .refresh-btn:hover { background: var(--accent2); }
+    .refresh-btn:disabled { opacity: 0.5; cursor: default; }
+
+    main { padding: 28px 32px; max-width: 1400px; margin: 0 auto; }
+
+    /* Summary cards */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .card .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+    .card .value { font-size: 1.75rem; font-weight: 700; }
+    .card.warn .value { color: var(--warn); }
+    .card.danger .value { color: var(--danger); }
+    .card.ok .value { color: var(--ok); }
+    .card.accent .value { color: var(--accent); }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 500;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* Search + filter bar */
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .search-input {
+      flex: 1;
+      min-width: 200px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px 14px;
+      color: var(--text);
+      font-size: 0.875rem;
+      outline: none;
+    }
+    .search-input:focus { border-color: var(--accent); }
+    .search-input::placeholder { color: var(--muted); }
+
+    /* Table */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: auto;
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    thead th {
+      background: var(--surface2);
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+    thead th:hover { color: var(--text); }
+    thead th .sort-icon { margin-left: 4px; opacity: 0.5; }
+    thead th.sorted .sort-icon { opacity: 1; color: var(--accent); }
+
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+    tbody td { padding: 11px 16px; vertical-align: middle; }
+    tbody td.muted { color: var(--muted); }
+    tbody td.path { font-family: monospace; font-size: 0.8rem; color: var(--muted); word-break: break-all; }
+    tbody td .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .badge-movie { background: #1e3a5f; color: #60a5fa; }
+    .badge-show  { background: #2d1b69; color: #a78bfa; }
+    .badge-episode { background: #1e3a5f; color: #93c5fd; }
+
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+    .spinner {
+      display: inline-block;
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-box {
+      background: #2d1111;
+      border: 1px solid var(--danger);
+      border-radius: var(--radius);
+      padding: 20px;
+      color: #fca5a5;
+      margin-bottom: 20px;
+    }
+
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 14px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .pagination button {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    .pagination button:disabled { opacity: 0.35; cursor: default; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const API = "http://localhost:8000";
+const PAGE_SIZE = 100;
+
+function fmt_bytes(b) {
+  if (!b) return "—";
+  if (b >= 1e12) return (b / 1e12).toFixed(2) + " TB";
+  if (b >= 1e9)  return (b / 1e9).toFixed(2) + " GB";
+  if (b >= 1e6)  return (b / 1e6).toFixed(2) + " MB";
+  return (b / 1e3).toFixed(1) + " KB";
+}
+
+function fmt_date(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("nl-NL", { year: "numeric", month: "short", day: "numeric" });
+}
+
+function fmt_mtime(ts) {
+  if (!ts) return "—";
+  return new Date(ts * 1000).toLocaleDateString("nl-NL", { year: "numeric", month: "short", day: "numeric" });
+}
+
+// ---- useFetch ----
+function useFetch(url, deps = []) {
+  const [data, setData] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await fetch(url);
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        throw new Error(body.detail || `HTTP ${r.status}`);
+      }
+      setData(await r.json());
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [url]);
+
+  React.useEffect(() => { load(); }, [...deps, load]);
+  return { data, loading, error, reload: load };
+}
+
+// ---- Sort hook ----
+function useSort(initialKey, initialDir = "asc") {
+  const [sort, setSort] = React.useState({ key: initialKey, dir: initialDir });
+  const toggle = (key) =>
+    setSort(s => s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" });
+  return [sort, toggle];
+}
+
+function sortData(data, { key, dir }) {
+  if (!key) return data;
+  return [...data].sort((a, b) => {
+    const av = a[key] ?? "";
+    const bv = b[key] ?? "";
+    const cmp = typeof av === "number" ? av - bv : String(av).localeCompare(String(bv));
+    return dir === "asc" ? cmp : -cmp;
+  });
+}
+
+// ---- SortTh ----
+function SortTh({ col, label, sort, onSort }) {
+  const active = sort.key === col;
+  return (
+    <th className={active ? "sorted" : ""} onClick={() => onSort(col)}>
+      {label}
+      <span className="sort-icon">{active ? (sort.dir === "asc" ? " ▲" : " ▼") : " ▲"}</span>
+    </th>
+  );
+}
+
+// ---- Pagination ----
+function Pagination({ page, setPage, total }) {
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  if (totalPages <= 1) return null;
+  return (
+    <div className="pagination">
+      <span>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} van {total}</span>
+      <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>Vorige</button>
+      <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Volgende</button>
+    </div>
+  );
+}
+
+// ---- Loading / Error states ----
+function Loading() {
+  return (
+    <div className="loading">
+      <div className="spinner"></div>
+      <div>Data laden…</div>
+    </div>
+  );
+}
+function ErrorBox({ msg }) {
+  return <div className="error-box">Fout bij ophalen data: {msg}</div>;
+}
+
+// ---- Summary Cards ----
+function SummaryCards({ summary, loading, error }) {
+  if (loading) return <div className="cards"><div className="card"><div className="label">Laden…</div></div></div>;
+  if (error)   return <ErrorBox msg={error} />;
+  if (!summary) return null;
+
+  return (
+    <div className="cards">
+      <div className="card ok">
+        <div className="label">NAS bestanden</div>
+        <div className="value">{summary.total_nas_files.toLocaleString()}</div>
+      </div>
+      <div className="card accent">
+        <div className="label">NAS totaalgrootte</div>
+        <div className="value">{summary.total_nas_size_gb} GB</div>
+      </div>
+      <div className="card ok">
+        <div className="label">Plex items</div>
+        <div className="value">{summary.total_plex_items.toLocaleString()}</div>
+      </div>
+      <div className="card danger">
+        <div className="label">Nooit bekeken</div>
+        <div className="value">{summary.never_watched_count.toLocaleString()}</div>
+      </div>
+      <div className="card warn">
+        <div className="label">Niet bekeken 6m+</div>
+        <div className="value">{summary.stale_count.toLocaleString()}</div>
+      </div>
+      <div className="card warn">
+        <div className="label">Orphaned files</div>
+        <div className="value">{summary.orphaned_count.toLocaleString()}</div>
+      </div>
+    </div>
+  );
+}
+
+// ---- NAS Files Tab ----
+function NasFilesTab() {
+  const { data, loading, error } = useFetch(`${API}/files`);
+  const [sort, onSort] = useSort("size", "desc");
+  const [search, setSearch] = React.useState("");
+  const [page, setPage] = React.useState(1);
+
+  const filtered = React.useMemo(() => {
+    if (!data) return [];
+    const q = search.toLowerCase();
+    return data.filter(f => !q || f.path?.toLowerCase().includes(q));
+  }, [data, search]);
+
+  const sorted = React.useMemo(() => sortData(filtered, sort), [filtered, sort]);
+  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  if (loading) return <Loading />;
+  if (error) return <ErrorBox msg={error} />;
+
+  return (
+    <>
+      <div className="toolbar">
+        <input className="search-input" placeholder="Zoek op pad…" value={search}
+          onChange={e => { setSearch(e.target.value); setPage(1); }} />
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <SortTh col="name"     label="Naam"       sort={sort} onSort={onSort} />
+              <SortTh col="size"     label="Grootte"    sort={sort} onSort={onSort} />
+              <SortTh col="modified" label="Gewijzigd"  sort={sort} onSort={onSort} />
+              <th>Pad</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paged.length === 0 && <tr><td colSpan={4} className="empty">Geen resultaten</td></tr>}
+            {paged.map((f, i) => (
+              <tr key={i}>
+                <td>{f.name}</td>
+                <td>{fmt_bytes(f.size)}</td>
+                <td className="muted">{fmt_mtime(f.modified)}</td>
+                <td className="path">{f.path}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Pagination page={page} setPage={setPage} total={sorted.length} />
+    </>
+  );
+}
+
+// ---- Plex item badge ----
+function TypeBadge({ type }) {
+  const cls = type === "movie" ? "badge-movie" : type === "show" ? "badge-show" : "badge-episode";
+  const label = type === "movie" ? "Film" : type === "show" ? "Serie" : "Aflevering";
+  return <span className={`badge ${cls}`}>{label}</span>;
+}
+
+// ---- Never Watched Tab ----
+function NeverWatchedTab() {
+  const { data, loading, error } = useFetch(`${API}/plex/unwatched`);
+  const [sort, onSort] = useSort("title");
+  const [search, setSearch] = React.useState("");
+  const [typeFilter, setTypeFilter] = React.useState("all");
+  const [page, setPage] = React.useState(1);
+
+  const filtered = React.useMemo(() => {
+    if (!data) return [];
+    const q = search.toLowerCase();
+    return data.filter(f =>
+      (typeFilter === "all" || f.type === typeFilter) &&
+      (!q || f.title?.toLowerCase().includes(q) || f.show_title?.toLowerCase().includes(q))
+    );
+  }, [data, search, typeFilter]);
+
+  const sorted = React.useMemo(() => sortData(filtered, sort), [filtered, sort]);
+  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  if (loading) return <Loading />;
+  if (error) return <ErrorBox msg={error} />;
+
+  return (
+    <>
+      <div className="toolbar">
+        <input className="search-input" placeholder="Zoek op titel…" value={search}
+          onChange={e => { setSearch(e.target.value); setPage(1); }} />
+        <select className="search-input" style={{flex: "0 0 160px"}} value={typeFilter}
+          onChange={e => { setTypeFilter(e.target.value); setPage(1); }}>
+          <option value="all">Alle types</option>
+          <option value="movie">Films</option>
+          <option value="episode">Afleveringen</option>
+        </select>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <SortTh col="title"    label="Titel"       sort={sort} onSort={onSort} />
+              <th>Type</th>
+              <SortTh col="show_title" label="Serie"     sort={sort} onSort={onSort} />
+              <SortTh col="year"     label="Jaar"        sort={sort} onSort={onSort} />
+              <SortTh col="added_at" label="Toegevoegd"  sort={sort} onSort={onSort} />
+              <th>Bestandspad</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paged.length === 0 && <tr><td colSpan={6} className="empty">Geen resultaten</td></tr>}
+            {paged.map((item, i) => (
+              <tr key={i}>
+                <td>{item.title}</td>
+                <td><TypeBadge type={item.type} /></td>
+                <td className="muted">{item.show_title || "—"}</td>
+                <td className="muted">{item.year || "—"}</td>
+                <td className="muted">{fmt_date(item.added_at)}</td>
+                <td className="path">{item.file_paths?.[0] || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Pagination page={page} setPage={setPage} total={sorted.length} />
+    </>
+  );
+}
+
+// ---- Stale Tab ----
+function StaleTab() {
+  const { data, loading, error } = useFetch(`${API}/plex/stale`);
+  const [sort, onSort] = useSort("last_viewed_at");
+  const [search, setSearch] = React.useState("");
+  const [page, setPage] = React.useState(1);
+
+  const filtered = React.useMemo(() => {
+    if (!data) return [];
+    const q = search.toLowerCase();
+    return data.filter(f =>
+      !q || f.title?.toLowerCase().includes(q) || f.show_title?.toLowerCase().includes(q)
+    );
+  }, [data, search]);
+
+  const sorted = React.useMemo(() => sortData(filtered, sort), [filtered, sort]);
+  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  if (loading) return <Loading />;
+  if (error) return <ErrorBox msg={error} />;
+
+  return (
+    <>
+      <div className="toolbar">
+        <input className="search-input" placeholder="Zoek op titel…" value={search}
+          onChange={e => { setSearch(e.target.value); setPage(1); }} />
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <SortTh col="title"          label="Titel"           sort={sort} onSort={onSort} />
+              <th>Type</th>
+              <SortTh col="show_title"     label="Serie"           sort={sort} onSort={onSort} />
+              <SortTh col="view_count"     label="Bekeken (x)"     sort={sort} onSort={onSort} />
+              <SortTh col="last_viewed_at" label="Laatste kijkdatum" sort={sort} onSort={onSort} />
+              <th>Bestandspad</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paged.length === 0 && <tr><td colSpan={6} className="empty">Geen resultaten</td></tr>}
+            {paged.map((item, i) => (
+              <tr key={i}>
+                <td>{item.title}</td>
+                <td><TypeBadge type={item.type} /></td>
+                <td className="muted">{item.show_title || "—"}</td>
+                <td className="muted">{item.view_count}</td>
+                <td className="muted">{fmt_date(item.last_viewed_at)}</td>
+                <td className="path">{item.file_paths?.[0] || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Pagination page={page} setPage={setPage} total={sorted.length} />
+    </>
+  );
+}
+
+// ---- Orphaned Tab ----
+function OrphanedTab() {
+  const { data, loading, error } = useFetch(`${API}/nas/orphaned`);
+  const [sort, onSort] = useSort("size", "desc");
+  const [search, setSearch] = React.useState("");
+  const [page, setPage] = React.useState(1);
+
+  const filtered = React.useMemo(() => {
+    if (!data) return [];
+    const q = search.toLowerCase();
+    return data.filter(f => !q || f.path?.toLowerCase().includes(q));
+  }, [data, search]);
+
+  const sorted = React.useMemo(() => sortData(filtered, sort), [filtered, sort]);
+  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  if (loading) return <Loading />;
+  if (error) return <ErrorBox msg={error} />;
+
+  return (
+    <>
+      <div className="toolbar">
+        <input className="search-input" placeholder="Zoek op pad…" value={search}
+          onChange={e => { setSearch(e.target.value); setPage(1); }} />
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <SortTh col="name"     label="Naam"      sort={sort} onSort={onSort} />
+              <SortTh col="size"     label="Grootte"   sort={sort} onSort={onSort} />
+              <SortTh col="modified" label="Gewijzigd" sort={sort} onSort={onSort} />
+              <th>Pad</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paged.length === 0 && <tr><td colSpan={4} className="empty">Geen resultaten</td></tr>}
+            {paged.map((f, i) => (
+              <tr key={i}>
+                <td>{f.name}</td>
+                <td>{fmt_bytes(f.size)}</td>
+                <td className="muted">{fmt_mtime(f.modified)}</td>
+                <td className="path">{f.path}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Pagination page={page} setPage={setPage} total={sorted.length} />
+    </>
+  );
+}
+
+// ---- Main App ----
+const TABS = [
+  { id: "files",    label: "Alle NAS-bestanden" },
+  { id: "unwatched", label: "Nooit bekeken" },
+  { id: "stale",    label: "Oud (6m+)" },
+  { id: "orphaned", label: "Orphaned" },
+];
+
+function App() {
+  const [tab, setTab] = React.useState("files");
+  const [refreshKey, setRefreshKey] = React.useState(0);
+
+  const summary = useFetch(`${API}/summary`, [refreshKey]);
+
+  const refresh = async () => {
+    await fetch(`${API}/cache`, { method: "DELETE" }).catch(() => {});
+    setRefreshKey(k => k + 1);
+  };
+
+  return (
+    <>
+      <header>
+        <h1>TrueNAS <span>+</span> Plex Dashboard</h1>
+        <button className="refresh-btn" onClick={refresh} disabled={summary.loading}>
+          {summary.loading ? "Laden…" : "Vernieuwen"}
+        </button>
+      </header>
+      <main>
+        <SummaryCards summary={summary.data} loading={summary.loading} error={summary.error} />
+
+        <div className="tabs">
+          {TABS.map(t => (
+            <button key={t.id} className={`tab${tab === t.id ? " active" : ""}`} onClick={() => setTab(t.id)}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "files"     && <NasFilesTab    key={refreshKey} />}
+        {tab === "unwatched" && <NeverWatchedTab key={refreshKey} />}
+        {tab === "stale"     && <StaleTab        key={refreshKey} />}
+        {tab === "orphaned"  && <OrphanedTab     key={refreshKey} />}
+      </main>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
