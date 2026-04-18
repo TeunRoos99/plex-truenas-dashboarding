@@ -1,6 +1,6 @@
 import httpx
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 from config import PLEX_URL, PLEX_TOKEN
 
 
@@ -24,7 +24,7 @@ def get_libraries() -> list[dict[str, Any]]:
     ]
 
 
-def _parse_timestamp(ts: int | None) -> str | None:
+def _parse_timestamp(ts: Optional[int]) -> Optional[str]:
     if not ts:
         return None
     return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
