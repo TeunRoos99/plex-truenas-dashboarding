@@ -43,6 +43,7 @@
 
     header h1 { font-size: 1.25rem; font-weight: 700; }
     header span { color: var(--accent); }
+    .cache-info { font-size: 0.75rem; color: var(--muted); }
 
     .refresh-btn {
       margin-left: auto;
@@ -622,6 +623,13 @@ function App() {
     <>
       <header>
         <h1>TrueNAS <span>+</span> Plex Dashboard</h1>
+        {summary.data && (
+          <span className="cache-info">
+            NAS cache: {summary.data.nas_cache_age_hours != null ? `${summary.data.nas_cache_age_hours}u oud` : "vers"}
+            {" · "}
+            Plex cache: {summary.data.plex_cache_age_hours != null ? `${summary.data.plex_cache_age_hours}u oud` : "vers"}
+          </span>
+        )}
         <button className="refresh-btn" onClick={refresh} disabled={summary.loading}>
           {summary.loading ? "Laden…" : "Vernieuwen"}
         </button>
