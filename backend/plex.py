@@ -48,21 +48,21 @@ def get_library_items(library_key: str, library_type: str) -> list[dict[str, Any
 
 def _parse_item(item: dict, item_type: str) -> dict[str, Any]:
     file_paths: list[str] = []
+    file_size: int = 0
     for media in item.get("Media", []):
         for part in media.get("Part", []):
             if part.get("file"):
                 file_paths.append(part["file"])
-
-    view_count = item.get("viewCount", 0)
-    last_viewed_at = _parse_timestamp(item.get("lastViewedAt"))
+            file_size += part.get("size", 0)
 
     return {
         "title": item.get("title", ""),
         "type": item_type,
         "rating_key": item.get("ratingKey", ""),
         "file_paths": file_paths,
-        "view_count": view_count,
-        "last_viewed_at": last_viewed_at,
+        "file_size": file_size,
+        "view_count": item.get("viewCount", 0),
+        "last_viewed_at": _parse_timestamp(item.get("lastViewedAt")),
         "added_at": _parse_timestamp(item.get("addedAt")),
         "year": item.get("year"),
     }

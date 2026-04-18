@@ -467,11 +467,12 @@ function NeverWatchedTab() {
         <table>
           <thead>
             <tr>
-              <SortTh col="title"    label="Titel"       sort={sort} onSort={onSort} />
+              <SortTh col="title"     label="Titel"       sort={sort} onSort={onSort} />
               <th>Type</th>
               <SortTh col="show_title" label="Serie"     sort={sort} onSort={onSort} />
-              <SortTh col="year"     label="Jaar"        sort={sort} onSort={onSort} />
-              <SortTh col="added_at" label="Toegevoegd"  sort={sort} onSort={onSort} />
+              <SortTh col="year"      label="Jaar"       sort={sort} onSort={onSort} />
+              <SortTh col="file_size" label="Grootte"    sort={sort} onSort={onSort} />
+              <SortTh col="added_at"  label="Toegevoegd" sort={sort} onSort={onSort} />
               <th>Bestandspad</th>
             </tr>
           </thead>
@@ -483,6 +484,7 @@ function NeverWatchedTab() {
                 <td><TypeBadge type={item.type} /></td>
                 <td className="muted">{item.show_title || "—"}</td>
                 <td className="muted">{item.year || "—"}</td>
+                <td className="muted">{fmt_bytes(item.file_size)}</td>
                 <td className="muted">{fmt_date(item.added_at)}</td>
                 <td className="path">{item.file_paths?.[0] || "—"}</td>
               </tr>
@@ -526,10 +528,11 @@ function StaleTab() {
         <table>
           <thead>
             <tr>
-              <SortTh col="title"          label="Titel"           sort={sort} onSort={onSort} />
+              <SortTh col="title"          label="Titel"             sort={sort} onSort={onSort} />
               <th>Type</th>
-              <SortTh col="show_title"     label="Serie"           sort={sort} onSort={onSort} />
-              <SortTh col="view_count"     label="Bekeken (x)"     sort={sort} onSort={onSort} />
+              <SortTh col="show_title"     label="Serie"             sort={sort} onSort={onSort} />
+              <SortTh col="view_count"     label="Bekeken (x)"       sort={sort} onSort={onSort} />
+              <SortTh col="file_size"      label="Grootte"           sort={sort} onSort={onSort} />
               <SortTh col="last_viewed_at" label="Laatste kijkdatum" sort={sort} onSort={onSort} />
               <th>Bestandspad</th>
             </tr>
@@ -542,6 +545,7 @@ function StaleTab() {
                 <td><TypeBadge type={item.type} /></td>
                 <td className="muted">{item.show_title || "—"}</td>
                 <td className="muted">{item.view_count}</td>
+                <td className="muted">{fmt_bytes(item.file_size)}</td>
                 <td className="muted">{fmt_date(item.last_viewed_at)}</td>
                 <td className="path">{item.file_paths?.[0] || "—"}</td>
               </tr>
@@ -614,6 +618,7 @@ function ShowsTab() {
               <SortTh col="watched_episodes" label="Bekeken"           sort={sort} onSort={onSort} />
               <SortTh col="total_episodes"   label="Totaal aflev."     sort={sort} onSort={onSort} />
               <SortTh col="watched_pct"      label="Voortgang"         sort={sort} onSort={onSort} />
+              <SortTh col="total_size"       label="Grootte"           sort={sort} onSort={onSort} />
               <SortTh col="last_viewed_at"   label="Laatste kijkdatum" sort={sort} onSort={onSort} />
               <SortTh col="added_at"         label="Toegevoegd"        sort={sort} onSort={onSort} />
             </tr>
@@ -626,6 +631,7 @@ function ShowsTab() {
                 <td className="muted">{s.watched_episodes}</td>
                 <td className="muted">{s.total_episodes}</td>
                 <td><Progress pct={s.watched_pct} /></td>
+                <td className="muted">{fmt_bytes(s.total_size)}</td>
                 <td className="muted">{fmt_date(s.last_viewed_at)}</td>
                 <td className="muted">{fmt_date(s.added_at)}</td>
               </tr>

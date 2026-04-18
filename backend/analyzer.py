@@ -17,12 +17,14 @@ def shows_overview(plex_items: list) -> list:
                 "show_title": title,
                 "total_episodes": 0,
                 "watched_episodes": 0,
+                "total_size": 0,
                 "last_viewed_at": None,
                 "added_at": None,
             }
 
         s = shows[title]
         s["total_episodes"] += 1
+        s["total_size"] += item.get("file_size", 0)
         if item.get("view_count", 0) > 0:
             s["watched_episodes"] += 1
 
