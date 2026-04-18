@@ -223,6 +223,33 @@
       font-size: 0.8rem;
     }
     .pagination button:disabled { opacity: 0.35; cursor: default; }
+
+    .export-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 7px 14px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 500;
+      transition: border-color 0.15s;
+      white-space: nowrap;
+    }
+    .export-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    .global-export-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 7px 14px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .global-export-btn:hover { border-color: var(--accent); color: var(--accent); }
   </style>
 </head>
 <body>
@@ -248,6 +275,34 @@ function fmt_date(iso) {
 function fmt_mtime(ts) {
   if (!ts) return "—";
   return new Date(ts * 1000).toLocaleDateString("nl-NL", { year: "numeric", month: "short", day: "numeric" });
+}
+
+// ---- Export utilities ----
+function downloadFile(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function toCSV(rows, cols) {
+  if (!rows || !rows.length) return "";
+  const esc = v => { const s = String(v ?? ""); return /[,"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  return [cols.map(c => c.label).join(","), ...rows.map(r => cols.map(c => esc(r[c.key])).join(","))].join("\n");
+}
+
+function gb(bytes) { return bytes ? +(bytes / 1e9).toFixed(2) : 0; }
+
+function ExportButtons({ data, filename, cols }) {
+  const csv  = () => downloadFile(toCSV(data, cols), `${filename}.csv`, "text/csv;charset=utf-8;");
+  const json = () => downloadFile(JSON.stringify(data, null, 2), `${filename}.json`, "application/json");
+  return (
+    <div style={{display:"flex", gap:"6px", marginLeft:"auto"}}>
+      <button className="export-btn" onClick={csv}>↓ CSV</button>
+      <button className="export-btn" onClick={json}>↓ JSON</button>
+    </div>
+  );
 }
 
 // ---- useFetch ----
@@ -474,6 +529,7 @@ function NeverWatchedTab() {
           <option value="movie">Films</option>
           <option value="episode">Afleveringen</option>
         </select>
+        <ExportButtons data={prepItemsExport(sorted)} filename="nooit-bekeken" cols={UNWATCHED_COLS} />
       </div>
       <div className="table-wrap">
         <table>
@@ -512,7 +568,7 @@ function NeverWatchedTab() {
 // ---- Stale Tab ----
 function StaleTab() {
   const { data, loading, error } = useFetch(`${API}/plex/stale`);
-  const [sort, onSort] = useSort("last_viewed_at");
+  const [sort, onSort] = useSort("last_viewed_at", "asc");
   const [search, setSearch] = React.useState("");
   const [page, setPage] = React.useState(1);
 
@@ -535,6 +591,7 @@ function StaleTab() {
       <div className="toolbar">
         <input className="search-input" placeholder="Zoek op titel…" value={search}
           onChange={e => { setSearch(e.target.value); setPage(1); }} />
+        <ExportButtons data={prepItemsExport(sorted)} filename="oud-niet-bekeken" cols={STALE_COLS} />
       </div>
       <div className="table-wrap">
         <table>
@@ -583,6 +640,49 @@ function Progress({ pct }) {
   );
 }
 
+const SHOWS_COLS = [
+  { key: "show_title", label: "Serie" },
+  { key: "total_episodes", label: "Totaal afleveringen" },
+  { key: "watched_episodes", label: "Bekeken afleveringen" },
+  { key: "watched_pct", label: "Bekeken %" },
+  { key: "total_size_gb", label: "Grootte (GB)" },
+  { key: "last_viewed_at", label: "Laatste kijkdatum" },
+  { key: "added_at", label: "Toegevoegd" },
+];
+const UNWATCHED_COLS = [
+  { key: "title", label: "Titel" },
+  { key: "type", label: "Type" },
+  { key: "show_title", label: "Serie" },
+  { key: "year", label: "Jaar" },
+  { key: "file_size_gb", label: "Grootte (GB)" },
+  { key: "added_at", label: "Toegevoegd" },
+  { key: "file_paths_0", label: "Bestandspad" },
+];
+const STALE_COLS = [
+  { key: "title", label: "Titel" },
+  { key: "type", label: "Type" },
+  { key: "show_title", label: "Serie" },
+  { key: "view_count", label: "Bekeken (x)" },
+  { key: "file_size_gb", label: "Grootte (GB)" },
+  { key: "last_viewed_at", label: "Laatste kijkdatum" },
+  { key: "file_paths_0", label: "Bestandspad" },
+];
+const ORPHANED_COLS = [
+  { key: "name", label: "Naam" },
+  { key: "size_gb", label: "Grootte (GB)" },
+  { key: "path", label: "Pad" },
+];
+
+function prepShowsExport(data) {
+  return data.map(s => ({ ...s, total_size_gb: gb(s.total_size) }));
+}
+function prepItemsExport(data) {
+  return data.map(i => ({ ...i, file_size_gb: gb(i.file_size), file_paths_0: i.file_paths?.[0] || "" }));
+}
+function prepOrphanedExport(data) {
+  return data.map(f => ({ ...f, size_gb: gb(f.size) }));
+}
+
 // ---- Shows Tab ----
 function ShowsTab() {
   const { data, loading, error } = useFetch(`${API}/plex/shows`);
@@ -621,6 +721,7 @@ function ShowsTab() {
           <option value="partial">Gedeeltelijk bekeken</option>
           <option value="complete">Volledig bekeken</option>
         </select>
+        <ExportButtons data={prepShowsExport(sorted)} filename="series" cols={SHOWS_COLS} />
       </div>
       <div className="table-wrap">
         <table>
@@ -680,6 +781,7 @@ function OrphanedTab() {
       <div className="toolbar">
         <input className="search-input" placeholder="Zoek op pad…" value={search}
           onChange={e => { setSearch(e.target.value); setPage(1); }} />
+        <ExportButtons data={prepOrphanedExport(sorted)} filename="orphaned" cols={ORPHANED_COLS} />
       </div>
       <div className="table-wrap">
         <table>
@@ -721,12 +823,36 @@ const TABS = [
 function App() {
   const [tab, setTab] = React.useState("files");
   const [refreshKey, setRefreshKey] = React.useState(0);
+  const [exporting, setExporting] = React.useState(false);
 
   const summary = useFetch(`${API}/summary`, [refreshKey]);
 
   const refresh = async () => {
     await fetch(`${API}/cache`, { method: "DELETE" }).catch(() => {});
     setRefreshKey(k => k + 1);
+  };
+
+  const exportAll = async () => {
+    setExporting(true);
+    try {
+      const [shows, unwatched, stale, orphaned] = await Promise.all([
+        fetch(`${API}/plex/shows`).then(r => r.json()),
+        fetch(`${API}/plex/unwatched`).then(r => r.json()),
+        fetch(`${API}/plex/stale`).then(r => r.json()),
+        fetch(`${API}/nas/orphaned`).then(r => r.json()),
+      ]);
+      const payload = {
+        gegenereerd_op: new Date().toISOString(),
+        samenvatting: summary.data,
+        series: prepShowsExport(shows),
+        nooit_bekeken: prepItemsExport(unwatched),
+        lang_niet_bekeken: prepItemsExport(stale),
+        orphaned_bestanden: prepOrphanedExport(orphaned),
+      };
+      downloadFile(JSON.stringify(payload, null, 2), "plex-nas-export.json", "application/json");
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -740,6 +866,9 @@ function App() {
             Plex cache: {summary.data.plex_cache_age_hours != null ? `${summary.data.plex_cache_age_hours}u oud` : "vers"}
           </span>
         )}
+        <button className="global-export-btn" onClick={exportAll} disabled={exporting || summary.loading}>
+          {exporting ? "Exporteren…" : "↓ Exporteer alles (JSON)"}
+        </button>
         <button className="refresh-btn" onClick={refresh} disabled={summary.loading}>
           {summary.loading ? "Laden…" : "Vernieuwen"}
         </button>
