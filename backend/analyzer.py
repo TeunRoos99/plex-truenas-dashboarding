@@ -42,7 +42,7 @@ def shows_overview(plex_items: list) -> list:
     return sorted(result, key=lambda x: x["show_title"].lower())
 
 
-
+def never_watched(plex_items: list) -> list:
     return [item for item in plex_items if not item.get("view_count")]
 
 
