@@ -352,6 +352,18 @@ function SummaryCards({ summary, loading, error }) {
         <div className="label">Plex items</div>
         <div className="value">{summary.total_plex_items.toLocaleString()}</div>
       </div>
+      <div className="card accent">
+        <div className="label">Plex totaal</div>
+        <div className="value">{summary.plex_total_size_gb} GB</div>
+      </div>
+      <div className="card accent">
+        <div className="label">Films grootte</div>
+        <div className="value">{summary.movies_size_gb} GB</div>
+      </div>
+      <div className="card accent">
+        <div className="label">Series grootte</div>
+        <div className="value">{summary.series_size_gb} GB</div>
+      </div>
       <div className="card danger">
         <div className="label">Nooit bekeken</div>
         <div className="value">{summary.never_watched_count.toLocaleString()}</div>

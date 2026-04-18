@@ -94,6 +94,10 @@ def summary(
     stale: list[dict],
 ) -> dict[str, Any]:
     total_size = sum(f.get("size", 0) for f in nas_files)
+
+    movies_size = sum(i.get("file_size", 0) for i in plex_items if i.get("type") == "movie")
+    series_size = sum(i.get("file_size", 0) for i in plex_items if i.get("type") == "episode")
+
     return {
         "total_nas_files": len(nas_files),
         "total_nas_size_bytes": total_size,
@@ -102,6 +106,9 @@ def summary(
         "never_watched_count": len(never),
         "stale_count": len(stale),
         "orphaned_count": len(orphans),
+        "movies_size_gb": round(movies_size / (1024**3), 2),
+        "series_size_gb": round(series_size / (1024**3), 2),
+        "plex_total_size_gb": round((movies_size + series_size) / (1024**3), 2),
     }
 
 
