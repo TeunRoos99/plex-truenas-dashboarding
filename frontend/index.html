@@ -165,6 +165,13 @@
     .badge-show  { background: #2d1b69; color: #a78bfa; }
     .badge-episode { background: #1e3a5f; color: #93c5fd; }
 
+    .progress-wrap { display: flex; align-items: center; gap: 8px; min-width: 140px; }
+    .progress-bar { flex: 1; height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 99px; background: var(--ok); transition: width 0.3s; }
+    .progress-fill.warn { background: var(--warn); }
+    .progress-fill.danger { background: var(--danger); }
+    .progress-label { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+
     .empty {
       text-align: center;
       padding: 60px 20px;
@@ -547,6 +554,90 @@ function StaleTab() {
   );
 }
 
+// ---- Progress bar ----
+function Progress({ pct }) {
+  const cls = pct === 0 ? "danger" : pct < 50 ? "warn" : "";
+  return (
+    <div className="progress-wrap">
+      <div className="progress-bar">
+        <div className="progress-fill" style={{width: `${pct}%`}} />
+      </div>
+      <span className="progress-label">{pct}%</span>
+    </div>
+  );
+}
+
+// ---- Shows Tab ----
+function ShowsTab() {
+  const { data, loading, error } = useFetch(`${API}/plex/shows`);
+  const [sort, onSort] = useSort("show_title");
+  const [search, setSearch] = React.useState("");
+  const [filter, setFilter] = React.useState("all");
+  const [page, setPage] = React.useState(1);
+
+  const filtered = React.useMemo(() => {
+    if (!data) return [];
+    const q = search.toLowerCase();
+    return data.filter(s => {
+      if (q && !s.show_title?.toLowerCase().includes(q)) return false;
+      if (filter === "unwatched" && s.watched_episodes > 0) return false;
+      if (filter === "partial" && (s.watched_episodes === 0 || s.watched_pct === 100)) return false;
+      if (filter === "complete" && s.watched_pct !== 100) return false;
+      return true;
+    });
+  }, [data, search, filter]);
+
+  const sorted = React.useMemo(() => sortData(filtered, sort), [filtered, sort]);
+  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  if (loading) return <Loading />;
+  if (error) return <ErrorBox msg={error} />;
+
+  return (
+    <>
+      <div className="toolbar">
+        <input className="search-input" placeholder="Zoek op serietitel…" value={search}
+          onChange={e => { setSearch(e.target.value); setPage(1); }} />
+        <select className="search-input" style={{flex: "0 0 180px"}} value={filter}
+          onChange={e => { setFilter(e.target.value); setPage(1); }}>
+          <option value="all">Alle series</option>
+          <option value="unwatched">Niets bekeken</option>
+          <option value="partial">Gedeeltelijk bekeken</option>
+          <option value="complete">Volledig bekeken</option>
+        </select>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <SortTh col="show_title"       label="Serie"             sort={sort} onSort={onSort} />
+              <SortTh col="watched_episodes" label="Bekeken"           sort={sort} onSort={onSort} />
+              <SortTh col="total_episodes"   label="Totaal aflev."     sort={sort} onSort={onSort} />
+              <SortTh col="watched_pct"      label="Voortgang"         sort={sort} onSort={onSort} />
+              <SortTh col="last_viewed_at"   label="Laatste kijkdatum" sort={sort} onSort={onSort} />
+              <SortTh col="added_at"         label="Toegevoegd"        sort={sort} onSort={onSort} />
+            </tr>
+          </thead>
+          <tbody>
+            {paged.length === 0 && <tr><td colSpan={6} className="empty">Geen resultaten</td></tr>}
+            {paged.map((s, i) => (
+              <tr key={i}>
+                <td>{s.show_title}</td>
+                <td className="muted">{s.watched_episodes}</td>
+                <td className="muted">{s.total_episodes}</td>
+                <td><Progress pct={s.watched_pct} /></td>
+                <td className="muted">{fmt_date(s.last_viewed_at)}</td>
+                <td className="muted">{fmt_date(s.added_at)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Pagination page={page} setPage={setPage} total={sorted.length} />
+    </>
+  );
+}
+
 // ---- Orphaned Tab ----
 function OrphanedTab() {
   const { data, loading, error } = useFetch(`${API}/nas/orphaned`);
@@ -602,10 +693,11 @@ function OrphanedTab() {
 
 // ---- Main App ----
 const TABS = [
-  { id: "files",    label: "Alle NAS-bestanden" },
+  { id: "files",     label: "Alle NAS-bestanden" },
+  { id: "shows",     label: "Series" },
   { id: "unwatched", label: "Nooit bekeken" },
-  { id: "stale",    label: "Oud (6m+)" },
-  { id: "orphaned", label: "Orphaned" },
+  { id: "stale",     label: "Oud (6m+)" },
+  { id: "orphaned",  label: "Orphaned" },
 ];
 
 function App() {
@@ -645,7 +737,8 @@ function App() {
           ))}
         </div>
 
-        {tab === "files"     && <NasFilesTab    key={refreshKey} />}
+        {tab === "files"     && <NasFilesTab     key={refreshKey} />}
+        {tab === "shows"     && <ShowsTab        key={refreshKey} />}
         {tab === "unwatched" && <NeverWatchedTab key={refreshKey} />}
         {tab === "stale"     && <StaleTab        key={refreshKey} />}
         {tab === "orphaned"  && <OrphanedTab     key={refreshKey} />}

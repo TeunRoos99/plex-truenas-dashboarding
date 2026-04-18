@@ -3,7 +3,46 @@ from typing import Any
 from config import STALE_MONTHS
 
 
-def never_watched(plex_items: list[dict]) -> list[dict]:
+def shows_overview(plex_items: list) -> list:
+    """Per serie: totaal afleveringen, hoeveel bekeken, laatste kijkdatum, toegevoegd."""
+    shows: dict = {}
+
+    for item in plex_items:
+        if item.get("type") != "episode":
+            continue
+
+        title = item.get("show_title") or "Onbekend"
+        if title not in shows:
+            shows[title] = {
+                "show_title": title,
+                "total_episodes": 0,
+                "watched_episodes": 0,
+                "last_viewed_at": None,
+                "added_at": None,
+            }
+
+        s = shows[title]
+        s["total_episodes"] += 1
+        if item.get("view_count", 0) > 0:
+            s["watched_episodes"] += 1
+
+        lv = item.get("last_viewed_at")
+        if lv and (s["last_viewed_at"] is None or lv > s["last_viewed_at"]):
+            s["last_viewed_at"] = lv
+
+        ad = item.get("added_at")
+        if ad and (s["added_at"] is None or ad < s["added_at"]):
+            s["added_at"] = ad
+
+    result = list(shows.values())
+    for s in result:
+        t = s["total_episodes"]
+        s["watched_pct"] = round(s["watched_episodes"] / t * 100) if t else 0
+
+    return sorted(result, key=lambda x: x["show_title"].lower())
+
+
+
     return [item for item in plex_items if not item.get("view_count")]
 
 

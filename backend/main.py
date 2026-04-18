@@ -75,6 +75,14 @@ async def get_plex_items() -> list:
         raise HTTPException(status_code=502, detail=str(exc))
 
 
+@app.get("/plex/shows")
+async def get_shows() -> list:
+    try:
+        return analyzer.shows_overview(await _plex_items())
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+
 @app.get("/plex/unwatched")
 async def get_unwatched() -> list:
     try:
